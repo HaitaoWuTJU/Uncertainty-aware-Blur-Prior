@@ -56,7 +56,7 @@ pip install -r requirements.txt
 ```
 
 ## Data Preparation
-1. Download the Things-image from the [OSF repository](https://osf.io/jum2f/files/osfstorage), Things-EEG from the [OSF repository](https://osf.io/anp5v/files/osfstorage), Things-EEG from [Openneuro repository](https://openneuro.org/datasets/ds004212/versions/2.0.1), and put them in the `data` dir. (We provided the processed Things-EEG-MEG data on [BaiduNetdisk](https://pan.baidu.com/s/1ZZWBrrp2Ly2ZOBHKT0fmTA?pwd=9j22), [Huggingface-things-meg](https://huggingface.co/datasets/Haitao999/things-eeg-meg) and [Huggingface-things-eeg](https://huggingface.co/datasets/Haitao999/things-eeg). If the processed data is downloaded, the following two processing steps can be skipped.
+1. Download the Things-image from the [OSF repository](https://osf.io/jum2f/files/osfstorage), Things-EEG from the [OSF repository](https://osf.io/anp5v/files/osfstorage), Things-MEG from [Openneuro repository](https://openneuro.org/datasets/ds004212/versions/2.0.1), and put them in the `data` dir. (We provided the processed Things-EEG-MEG data on [BaiduNetdisk](https://pan.baidu.com/s/1ZZWBrrp2Ly2ZOBHKT0fmTA?pwd=9j22), [Huggingface-things-meg](https://huggingface.co/datasets/Haitao999/things-eeg-meg) and [Huggingface-things-eeg](https://huggingface.co/datasets/Haitao999/things-eeg). If the processed data is downloaded, the following two processing steps can be skipped.
 
 Recommendation: things.zip, things-eeg.zip, things-meg.zip is necessary, other files are optional.
 
