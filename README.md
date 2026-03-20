@@ -56,22 +56,21 @@ pip install -r requirements.txt
 ```
 
 ## Data Preparation
-1. Download the Things-image from the [OSF repository](https://osf.io/jum2f/files/osfstorage), Things-EEG from the [OSF repository](https://osf.io/anp5v/files/osfstorage), Things-MEG from [Openneuro repository](https://openneuro.org/datasets/ds004212/versions/2.0.1), and put them in the `data` dir. (We provided the processed Things-EEG-MEG data on [BaiduNetdisk](https://pan.baidu.com/s/1ZZWBrrp2Ly2ZOBHKT0fmTA?pwd=9j22), [Huggingface-things-meg](https://huggingface.co/datasets/Haitao999/things-eeg-meg) and [Huggingface-things-eeg](https://huggingface.co/datasets/Haitao999/things-eeg). If the processed data is downloaded, the following two processing steps can be skipped.
+1. Download the Things-image from the [OSF repository](https://osf.io/jum2f/files/osfstorage), Things-EEG from the [OSF repository](https://osf.io/anp5v/files/osfstorage), Things-MEG from [Openneuro repository](https://openneuro.org/datasets/ds004212/versions/2.0.1), and put them in the `data` dir. 
+We have made all processed data and experimental checkpoints publicly available on Hugging Face:
 
-Recommendation: things.zip, things-eeg.zip, things-meg.zip is necessary, other files are optional.
+- **THINGS-EEG Dataset:** [Haitao999/things-eeg](https://huggingface.co/datasets/Haitao999/things-eeg)
+- **THINGS-MEG Dataset:** [Haitao999/things-meg](https://huggingface.co/datasets/Haitao999/things-meg)
+- **UBP Checkpoints:** [Haitao999/ubp_exp](https://huggingface.co/Haitao999/ubp_exp)
 
-3. Convert the data to .pt format using the preprocessing script for all subjects:
+（If the processed data is downloaded, the following processing step can be skipped.）
 
+
+2. Process the data to .pt format using the preprocessing script for all subjects:
 ```
 /bin/bash scripts/bash_preprocess.sh
 ```
 
-3. Resize the downloaded images using the provided script:
-
-```
-python preprocess/process_resize.py --type eeg
-python preprocess/process_resize.py --type meg
-```
 
 Finally, we have the directory tree:
 ```
