@@ -61,7 +61,7 @@ We have made all processed data and experimental checkpoints publicly available 
 
 - **THINGS-EEG Dataset:** [Haitao999/things-eeg](https://huggingface.co/datasets/Haitao999/things-eeg)
 - **THINGS-MEG Dataset:** [Haitao999/things-meg](https://huggingface.co/datasets/Haitao999/things-meg)
-- **UBP Checkpoints:** [Haitao999/ubp_exp](https://huggingface.co/Haitao999/ubp_exp)
+- **UBP Checkpoints:** [Haitao999/ubp_exp](https://huggingface.co/Haitao999/ubp_exp) (Optional)
 
 （If the processed data is downloaded, the following processing step can be skipped.）
 
