@@ -7,7 +7,7 @@ import open_clip
 import gc
 from tqdm import tqdm
 import itertools
-
+import copy
 from torch.utils.data import DataLoader, random_split
 from torchvision import transforms
 from base.utils import instantiate_from_config, get_device 
@@ -101,8 +101,8 @@ class EEGDataset(Dataset):
         if self.config['data']['uncertainty_aware']:
             self.blur_transform = {}
             for shift,tag in zip([-self.c,0,self.c],['low','medium','high']):
-                blur_param = config['data']['blur_type']
-                blur_param['params']['blur_kernel_size'] = blur_param['params']['blur_kernel_size']+shift
+                blur_param = copy.deepcopy(config['data']['blur_type'])
+                blur_param['params']['blur_kernel_size'] += shift
                 self.blur_transform[tag] = instantiate_from_config(blur_param)
         else:
             self.blur_transform = instantiate_from_config(config['data']['blur_type'])
