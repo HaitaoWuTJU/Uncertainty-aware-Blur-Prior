@@ -15,14 +15,19 @@ from base.utils import instantiate_from_config, get_device
 
 def load_eeg_data(config):
     exp_setting = config.get('exp_setting', 'intra-subject')
-    
+    # Upstream hardcoded 32/25 workers, which oversubscribes a batch job that was
+    # allocated fewer cores; data.num_workers overrides both when set.
+    nw = config['data'].get('num_workers')
+    train_nw = 32 if nw is None else nw
+    test_nw = 25 if nw is None else nw
+
     if exp_setting == 'intra-subject':
         test_dataset = EEGDataset(config,mode='test')
         print('init test_dataset success')
         train_dataset = EEGDataset(config,mode='train')
         print('init train_dataset success')
-        test_loader = DataLoader(test_dataset, batch_size=config['data']['test_batch_size'], shuffle=False, drop_last=False,num_workers=25, pin_memory=True)
-        train_loader = DataLoader(train_dataset, batch_size=config['data']['train_batch_size'], shuffle=True, drop_last=False, num_workers=32, pin_memory=True)
+        test_loader = DataLoader(test_dataset, batch_size=config['data']['test_batch_size'], shuffle=False, drop_last=False,num_workers=test_nw, pin_memory=True)
+        train_loader = DataLoader(train_dataset, batch_size=config['data']['train_batch_size'], shuffle=True, drop_last=False, num_workers=train_nw, pin_memory=True)
         return train_loader, test_loader,test_loader
     
     elif exp_setting == 'inter-subject':
@@ -38,15 +43,19 @@ def load_eeg_data(config):
         print('init val_dataset success')
         train_dataset = EEGDataset(leave_one_subjects_config,mode='train')
         print('init train_dataset success')
-        test_loader = DataLoader(test_dataset, batch_size=config['data']['test_batch_size'], shuffle=False, drop_last=False,num_workers=25)#, pin_memory=True)
-        val_loader = DataLoader(val_dataset, batch_size=config['data']['val_batch_size'], shuffle=False, drop_last=False,num_workers=32)#, pin_memory=True)
-        train_loader = DataLoader(train_dataset, batch_size=config['data']['train_batch_size'], shuffle=True, drop_last=False, num_workers=32)#, pin_memory=True)
+        test_loader = DataLoader(test_dataset, batch_size=config['data']['test_batch_size'], shuffle=False, drop_last=False,num_workers=test_nw)#, pin_memory=True)
+        val_loader = DataLoader(val_dataset, batch_size=config['data']['val_batch_size'], shuffle=False, drop_last=False,num_workers=train_nw)#, pin_memory=True)
+        train_loader = DataLoader(train_dataset, batch_size=config['data']['train_batch_size'], shuffle=True, drop_last=False, num_workers=train_nw)#, pin_memory=True)
         return train_loader, val_loader, test_loader
     
 class EEGDataset(Dataset):
     def __init__(self, config, mode):
         self.config= config
         self.data_dir = config['data']['data_dir']
+        # Resized images and the CLIP feature cache need not sit next to the EEG .pt
+        # files; fall back to the upstream <data_dir>/../ layout when unset.
+        self.image_dir = config['data'].get('image_dir') or os.path.join(self.data_dir, '..', 'Image_set_Resize')
+        self.feature_dir = config['data'].get('feature_dir') or os.path.join(self.data_dir, '..', 'Image_feature')
         # self.img_directory = os.path.join(self.data_dir,'../','Image_set_Resize',f'{mode}_images')
         # self.all_class_names = [d.split('_',1)[-1] for d in os.listdir(self.img_directory) if os.path.isdir(os.path.join(self.img_directory, d))]
         # self.all_class_names.sort()
@@ -81,10 +90,15 @@ class EEGDataset(Dataset):
         self.trial_subject = self.loaded_data[0]['eeg'].shape[0]
         self.trial_all_subjects = self.trial_subject*len(self.subjects)
 
-        data_dir = os.path.join(self.data_dir,'../Image_feature',f"{config['data']['blur_type']['target'].rsplit('.',1)[-1]}")
+        data_dir = os.path.join(self.feature_dir,f"{config['data']['blur_type']['target'].rsplit('.',1)[-1]}")
         os.makedirs(data_dir,exist_ok=True)
 
-        features_filename = os.path.join(data_dir,f"{self.name}_{mode}.pt")
+        # Image features depend only on the vision backbone and the blur settings --
+        # not on the brain backbone, channel subset or trial averaging. feature_name
+        # lets those variants share one cache instead of re-encoding every image.
+        feature_name = config['data'].get('feature_name') or self.name
+        features_filename = os.path.join(data_dir,f"{feature_name}_{mode}.pt")
+        print(f'image feature cache: {features_filename}')
 
         pretrain_map= {
                 'RN50':{'pretrained':'openai','resize':(224,224)}, #1024 
@@ -129,10 +143,17 @@ class EEGDataset(Dataset):
             else:
                 self.img_features = self.ImageEncoder(self.loaded_data[0]['img'])
             self.text_features = self.Textencoder(self.loaded_data[0]['text'])
+            # The cache path has no subject in it, so concurrent runs (e.g. an LSF
+            # job array over subjects) all target the same file. Write to a unique
+            # temp file and rename: os.replace is atomic, so no reader ever sees a
+            # half-written cache. Warm the cache with a single run to avoid the
+            # redundant encoding work entirely.
+            tmp_filename = f'{features_filename}.tmp.{os.getpid()}'
             torch.save({
                 'text_features': self.text_features,
                 'img_features': self.img_features,
-            }, features_filename)
+            }, tmp_filename)
+            os.replace(tmp_filename, features_filename)
 
             del self.vlmodel
             torch.cuda.empty_cache()
@@ -187,7 +208,7 @@ class EEGDataset(Dataset):
             batch_images = set_images[i:i + batch_size]
 
             device = next(self.vlmodel.parameters()).device
-            ele = [self.process_transform(blur_transform(Image.open(os.path.join(self.data_dir,'../Image_set_Resize',img)).convert("RGB"))) for img in batch_images]
+            ele = [self.process_transform(blur_transform(Image.open(os.path.join(self.image_dir,img)).convert("RGB"))) for img in batch_images]
 
             image_inputs = torch.stack(ele).to(device)
 

@@ -52,6 +52,13 @@ class PLModel(pl.LightningModule):
         
         self.mAP_total = 0
         self.match_similarities = []
+
+        # Export test-set EEG embeddings and compute a full-gallery retrieval that,
+        # unlike the batch-diagonal metrics, is valid when test_avg is False.
+        self.save_embeddings = bool(self.config.get('save_embeddings', False))
+        self.test_eeg_z = []
+        self.test_img_z = []
+        self.test_img_paths = []
         
 
     def forward(self, batch,sample_posterior=False):
@@ -165,6 +172,12 @@ class PLModel(pl.LightningModule):
         eeg_z, img_z, loss = self(batch)
         self.log('test_loss', loss, on_step=False, on_epoch=True,prog_bar=True, logger=True, sync_dist=True, batch_size=batch_size)
         eeg_z = eeg_z/eeg_z.norm(dim=-1, keepdim=True)
+
+        if self.save_embeddings:
+            self.test_eeg_z.append(eeg_z.detach().float().cpu())
+            self.test_img_z.append(img_z.detach().float().cpu())
+            self.test_img_paths.extend(batch['img_path'])
+
         similarity = (eeg_z @ img_z.T)
         top_kvalues, top_k_indices = similarity.topk(5, dim=-1)
         self.all_predicted_classes.append(top_k_indices.cpu().numpy())
@@ -187,7 +200,64 @@ class PLModel(pl.LightningModule):
         
         return loss
         
+    def _export_test_embeddings(self):
+        """Save test EEG embeddings and score them against the full image gallery.
+
+        The batch-diagonal metrics in test_step assume every row of a batch is a
+        different image, which only holds when test_avg is True (200 images, batch
+        200). With test_avg False the loader yields consecutive repetitions of the
+        same image, so those metrics are meaningless -- the *_gallery metrics below
+        rank every trial against all unique test images instead, which is correct
+        either way and reduces to the same numbers when test_avg is True.
+        """
+        z = torch.cat(self.test_eeg_z, dim=0)          # (N, d), image-major order
+        g = torch.cat(self.test_img_z, dim=0)          # (N, d)
+        paths = list(self.test_img_paths)
+        # Repetitions of one image are contiguous, so the count of the first path
+        # is the number of repetitions per image.
+        n_reps = paths.count(paths[0])
+        n_img = len(paths) // n_reps
+        if n_img * n_reps != len(paths):
+            print(f'WARNING: {len(paths)} test rows is not n_img*n_reps; skipping export')
+            return
+
+        gallery = g.view(n_img, n_reps, -1)[:, 0, :]   # (n_img, d), one row per image
+        sim = z @ gallery.T                           # (N, n_img)
+        true = torch.arange(n_img).repeat_interleave(n_reps)
+
+        order = sim.argsort(dim=-1, descending=True)
+        rank = (order == true[:, None]).float().argmax(dim=1) + 1
+        # Plain floats, not CPU tensors: these are computed on CPU, and self.log with
+        # sync_dist=True would hand a CPU tensor to the NCCL backend and raise
+        # "No backend type associated with device type cpu".
+        top1 = (order[:, 0] == true).float().mean().item()
+        top5 = (order[:, :min(5, n_img)] == true[:, None]).any(dim=1).float().mean().item()
+        mAP = (1.0 / rank.float()).mean().item()
+
+        self.log('test_top1_acc_gallery', top1, sync_dist=True)
+        self.log('test_top5_acc_gallery', top5, sync_dist=True)
+        self.log('mAP_gallery', mAP, sync_dist=True)
+        print(f'gallery retrieval over {n_img} images x {n_reps} reps: '
+              f'top1={top1:.4f} top5={top5:.4f} mAP={mAP:.4f}')
+
+        out = os.path.join(self.trainer.logger.log_dir, 'test_embeddings.pt')
+        torch.save({
+            'eeg_z': z.view(n_img, n_reps, -1).permute(1, 0, 2).contiguous(),
+            'img_z': gallery,
+            'img_paths': paths[::n_reps],
+            'n_reps': n_reps,
+            'n_images': n_img,
+            'normalized': True,
+            'dim_order': 'eeg_z: (reps, images, z_dim); img_z: (images, z_dim)',
+        }, out)
+        print(f'saved embeddings -> {out} '
+              f'eeg_z=({n_reps}, {n_img}, {z.shape[-1]})')
+
+        self.test_eeg_z, self.test_img_z, self.test_img_paths = [], [], []
+
     def on_test_epoch_end(self):
+        if self.save_embeddings and self.test_eeg_z:
+            self._export_test_embeddings()
         all_predicted_classes = np.concatenate(self.all_predicted_classes,axis=0)
         all_true_labels = np.array(self.all_true_labels)
         

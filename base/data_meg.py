@@ -47,6 +47,10 @@ class MEGDataset(Dataset):
     def __init__(self, config, mode):
         self.config= config
         self.data_dir = config['data']['data_dir']
+        # Resized images and the CLIP feature cache need not sit next to the MEG .pt
+        # files; fall back to the upstream <data_dir>/../ layout when unset.
+        self.image_dir = config['data'].get('image_dir') or os.path.join(self.data_dir, '..', 'Image_set_Resize')
+        self.feature_dir = config['data'].get('feature_dir') or os.path.join(self.data_dir, '..', 'Image_feature')
         # self.img_directory = os.path.join(self.data_dir,'../','Image_set_Resize',f'{mode}_images')
         # self.all_class_names = [d.split('_',1)[-1] for d in os.listdir(self.img_directory) if os.path.isdir(os.path.join(self.img_directory, d))]
         # self.all_class_names.sort()
@@ -75,7 +79,7 @@ class MEGDataset(Dataset):
         self.trial_subject = self.loaded_data[0]['eeg'].shape[0]
         self.trial_all_subjects = self.trial_subject*len(self.subjects)
 
-        data_dir = os.path.join(self.data_dir,'../Image_feature',f"{config['data']['blur_type']['target'].rsplit('.',1)[-1]}")
+        data_dir = os.path.join(self.feature_dir,f"{config['data']['blur_type']['target'].rsplit('.',1)[-1]}")
         os.makedirs(data_dir,exist_ok=True)
         features_filename = os.path.join(data_dir,f"{self.name}_{mode}.pt")
 
@@ -181,7 +185,7 @@ class MEGDataset(Dataset):
 
             device = next(self.vlmodel.parameters()).device
             # print(batch_images[0])
-            ele = [self.process_transform(blur_transform(Image.open(os.path.join(self.data_dir,'../Image_set_Resize',img)).convert("RGB"))) for img in batch_images]
+            ele = [self.process_transform(blur_transform(Image.open(os.path.join(self.image_dir,img)).convert("RGB"))) for img in batch_images]
 
             image_inputs = torch.stack(ele).to(device)
 

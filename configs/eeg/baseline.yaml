@@ -11,12 +11,16 @@ models:
         timesteps: ${timesteps}
 
 data:
-  data_dir: data/things-eeg/Preprocessed_data_250Hz_whiten
+  data_dir: /work3/s193209/data/eeg_preprocessed_250hz/ubp_format/Preprocessed_data_250Hz_whiten
+  image_dir: /work3/s193209/data/images/Image_set_Resize
+  feature_dir: /work3/s193209/data/eeg_preprocessed_250hz/ubp_format/Image_feature
   selected_ch: ['P7', 'P5', 'P3', 'P1','Pz', 'P2', 'P4', 'P6', 'P8', 'PO7', 'PO3', 'POz', 'PO4', 'PO8','O1', 'Oz', 'O2']
   model_type: ${vision_backbone}
+  feature_name: "${vision_backbone}"
   train_batch_size: 1024
   val_batch_size: 200
   test_batch_size: 200
+  num_workers: 7
   uncertainty_aware: False
   blur_type:
     target: base.inpating_data.DirectT
@@ -30,4 +34,6 @@ train:
   optimizer: AdamW
   lr: ${lr}
 
-save_dir: 'exp'
+save_embeddings: true
+
+save_dir: /work3/s193209/data/ubp_exp

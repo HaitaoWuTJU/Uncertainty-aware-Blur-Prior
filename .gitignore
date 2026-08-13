@@ -16,3 +16,5 @@ __pycache__/
 **/lightning_logs/**
 
 data
+logs/
+!logs/.gitkeep

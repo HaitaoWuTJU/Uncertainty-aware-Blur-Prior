@@ -1,3 +1,4 @@
+import os
 import random
 import numpy as np
 import torch
@@ -50,6 +51,15 @@ def update_config(args, config):
 
 
 def get_device(gpu_ids):
+    # Under a scheduler (LSF) CUDA_VISIBLE_DEVICES already restricts this process to
+    # its allocated GPUs and torch renumbers them from 0, but nvidia-smi still reports
+    # physical indices -- so 'auto' can return an index torch cannot see. UBP_GPU
+    # overrides the choice; otherwise trust the scheduler's allocation.
+    override = os.environ.get('UBP_GPU')
+    if override:
+        gpu_ids = override
+    if gpu_ids == 'auto' and os.environ.get('CUDA_VISIBLE_DEVICES'):
+        return 0
     if gpu_ids=='auto':
         nvidia_smi_output = subprocess.check_output(['nvidia-smi', '--query-gpu=index,memory.free,temperature.gpu', '--format=csv,noheader,nounits'])
         gpu_info_lines = nvidia_smi_output.decode('utf-8').strip().split('\n')
