@@ -44,7 +44,7 @@ export HF_HUB_OFFLINE=1
 # Without this, get_device('auto') would parse nvidia-smi's physical index.
 export UBP_GPU=0
 
-CONFIG=${CONFIG:-configs/eeg/ubp.yaml}
+CONFIG=configs/eeg/ubp_allch.yaml
 EXP_SETTING=${EXP_SETTING:-intra-subject}
 BRAIN_BACKBONE=${BRAIN_BACKBONE:-EEGProjectLayer}
 VISION_BACKBONE=${VISION_BACKBONE:-ViT-H-14}
