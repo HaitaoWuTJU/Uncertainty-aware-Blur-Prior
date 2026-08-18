@@ -15,13 +15,13 @@
 ### Baseline instead of UBP: CONFIG=configs/eeg/baseline.yaml bsub < scripts/lsf_train_eeg.sh
 ### Inter-subject (leave-one-out, lr defaults to 1e-5):
 ###   EXP_SETTING=inter-subject bsub < scripts/lsf_train_eeg.sh
-#BSUB -J ubp_train[1-10]
+#BSUB -J ubp_train[2-10]
 #BSUB -q gpua100
 #BSUB -gpu "num=1:mode=exclusive_process"
 #BSUB -n 8
 #BSUB -R "span[hosts=1]"
 #BSUB -R "rusage[mem=8GB]"
-#BSUB -W 04:00
+#BSUB -W 01:00
 #BSUB -o logs/train_%J_%I.out
 #BSUB -e logs/train_%J_%I.err
 
@@ -38,16 +38,24 @@ export HF_HOME=/work3/s193209/huggingface_cache
 export HF_HUB_CACHE="$HF_HOME/hub"
 export TORCH_HOME=/work3/s193209/torch_cache
 # ViT-H-14 laion2b_s32b_b79k is already cached, so no download is needed.
+
 export HF_HUB_OFFLINE=1
 
 # LSF hands us one GPU via CUDA_VISIBLE_DEVICES; torch sees it as index 0.
 # Without this, get_device('auto') would parse nvidia-smi's physical index.
 export UBP_GPU=0
 
-CONFIG=configs/eeg/ubp_allch.yaml
-EXP_SETTING=${EXP_SETTING:-intra-subject}
-BRAIN_BACKBONE=${BRAIN_BACKBONE:-EEGProjectLayer}
-VISION_BACKBONE=${VISION_BACKBONE:-ViT-H-14}
+
+
+CONFIG=configs/eeg/ubp.yaml
+
+# brain_backbones=("EEGProjectLayer" "Shallownet" "Deepnet" "EEGnet" "TSconv")
+# vision_backbones=("RN50" "RN101" "ViT-B-16" "ViT-B-32" "ViT-L-14" "ViT-H-14" "ViT-g-14" "ViT-bigG-14")
+EXP_SETTING=intra-subject
+BRAIN_BACKBONE=EEGProjectLayer
+VISION_BACKBONE=RN50
+
+
 EPOCH=${EPOCH:-50}
 SEED=${SEED:-0}
 # intra-subject trains on 1e-4; inter-subject (leave-one-out) on 1e-5.

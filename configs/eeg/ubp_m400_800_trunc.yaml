@@ -1,0 +1,48 @@
+timesteps: [0,250]
+
+blur_kernel_size: 51
+system_g: 3
+
+name: "${dataset}_${exp_setting}_ubp_${brain_backbone}_${vision_backbone}_m400_800_trunc"
+
+models:
+  brain:
+    target: "base.eeg_backbone.${brain_backbone}"
+    params:
+        c_num: 17
+        z_dim: ${z_dim}
+        timesteps: ${timesteps}
+
+data:
+  data_dir: /work3/s193209/data/eeg_preprocessed_250hz/ubp_format/Preprocessed_data_250Hz_whiten_minus400til800_trunc200
+  image_dir: /work3/s193209/data/images/Image_set_Resize
+  feature_dir: /work3/s193209/data/eeg_preprocessed_250hz/ubp_format/Image_feature
+  selected_ch: ['P7', 'P5', 'P3', 'P1','Pz', 'P2', 'P4', 'P6', 'P8', 'PO7', 'PO3', 'POz', 'PO4', 'PO8','O1', 'Oz', 'O2']
+  model_type: ${vision_backbone}
+  feature_name: "${vision_backbone}_ua_k${blur_kernel_size}_g${system_g}_c${c}"
+  train_batch_size: 1024
+  val_batch_size: 200
+  test_batch_size: 200
+  num_workers: 7
+  uncertainty_aware: True
+  blur_type:
+    target: base.inpating_data.FoveaBlur
+    params:
+          h: 224
+          w: 224
+          blur_kernel_size: ${blur_kernel_size}
+          curve_type: exp
+          system_g:  ${system_g}
+
+  train_avg: True
+  test_avg: True
+  timesteps: ${timesteps}
+
+train:
+  epoch: ${epoch}
+  optimizer: AdamW
+  lr: ${lr}
+  
+save_embeddings: true
+
+save_dir: /work3/s193209/data/ubp_exp
